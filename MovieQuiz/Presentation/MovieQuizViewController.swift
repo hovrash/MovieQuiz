@@ -1,11 +1,29 @@
 import UIKit
 
+// MARK: - Private Structures
+private struct QuizQuestion {
+  let image: String
+  let text: String
+  let correctAnswer: Bool
+}
+private struct QuizStepViewModel {
+    let image: UIImage
+    let question: String
+    let questionNumber: String
+}
+private struct QuizResultsViewModel {
+  let title: String
+  let text: String
+  let buttonText: String
+}
+
 final class MovieQuizViewController: UIViewController {
-    
     // MARK: - IB Outlets
     @IBOutlet private var indexLabel: UILabel!
     @IBOutlet private var previewImage: UIImageView!
     @IBOutlet private var questionLabel: UILabel!
+    @IBOutlet weak var noButton: UIButton!
+    @IBOutlet weak var yesButton: UIButton!
     
     // MARK: - Private Properties
     private var currentQuestionIndex = 0
@@ -53,26 +71,11 @@ final class MovieQuizViewController: UIViewController {
                 text: "Рейтинг этого фильма больше чем 6?",
                 correctAnswer: false)]
     
-    // MARK: - Private Structures
-    private struct QuizQuestion {
-      let image: String
-      let text: String
-      let correctAnswer: Bool
-    }
-    private struct QuizStepViewModel {
-        let image: UIImage
-        let question: String
-        let questionNumber: String
-    }
-    private struct QuizResultsViewModel {
-      let title: String
-      let text: String
-      let buttonText: String
-    }
-    
     // MARK: - Overrides Methods
     override func viewDidLoad() {
         super.viewDidLoad()
+        previewImage.layer.masksToBounds = true
+        previewImage.layer.cornerRadius = 20
         show(quiz: convert(model: questions[currentQuestionIndex]))
     }
     
@@ -85,12 +88,18 @@ final class MovieQuizViewController: UIViewController {
     }
     
     // MARK: - Private Methods
+    private func ButtonsEnableToggle(_ action: Bool) {
+        noButton.isEnabled = action
+        yesButton.isEnabled = action
+    }
+    
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
         let result = QuizStepViewModel(image: UIImage(named: model.image) ?? UIImage(), question: model.text, questionNumber: "\(currentQuestionIndex + 1)/\(questions.count)")
         return result
     }
 
     private func show(quiz step: QuizStepViewModel) {
+        ButtonsEnableToggle(true)
         indexLabel.text = step.questionNumber
         previewImage.image = step.image
         questionLabel.text = step.question
@@ -113,9 +122,8 @@ final class MovieQuizViewController: UIViewController {
     
     private func showAnswerResult(isCorrect: Bool) {
         let currentQuestion = questions[currentQuestionIndex]
-        previewImage.layer.masksToBounds = true
-        previewImage.layer.borderWidth = 5
-        previewImage.layer.cornerRadius = 5
+        previewImage.layer.borderWidth = 8
+        ButtonsEnableToggle(false)
         if currentQuestion.correctAnswer == isCorrect {
             previewImage.layer.borderColor = UIColor.ypGreen.cgColor
             correctAnswers += 1
