@@ -13,4 +13,6 @@ protocol StatisticServiceProtocol {
     var totalAccuracy: Double { get }
     
     func store(game: GameResult)
+    
+    func showRecord () -> String
 }

@@ -15,6 +15,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     private let questionsAmount: Int = 10 // общее количество вопросов для квиза
     private var questionFactory: QuestionFactoryProtocol? // фабрика вопросов
     private var currentQuestion: QuizQuestion? // текущий вопрос, который видит пользователь
+    private var staticsService: StatisticServiceProtocol?
     private var alertPresenter: AlertPresenterProtocol?
     
     // MARK: - Overrides Methods
@@ -23,7 +24,8 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         let alertPresenter = AlertPresenter()
         alertPresenter.delegate = self
         self.alertPresenter = alertPresenter
-        
+        let staticsService = StatisticService()// создаем свойство для ведения статистики
+        self.staticsService = staticsService
         let questionFactory = QuestionFactory() // создаем экземпляр фабрики для её настройки
         questionFactory.delegate = self // устанавливаем связь фабрики с делегатом
         self.questionFactory = questionFactory // сохраняем подготовленный экземпляр свойство контроллера
@@ -72,20 +74,19 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     }
     
     // MARK: - Private Methods
-    
-    // функция, которая принимает булевое значение от кнопок, управляет доступностью кнопок
+    // метод, который принимает булевое значение от кнопок, управляет доступностью кнопок
     private func ButtonsEnableToggle(_ action: Bool) {
         noButton.isEnabled = action
         yesButton.isEnabled = action
     }
     
-    // функция, которая конвертирует модель вопроса для показа на экране
+    // метод, который конвертирует модель вопроса для показа на экране
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
         let result = QuizStepViewModel(image: UIImage(named: model.image) ?? UIImage(), question: model.text, questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
         return result
     }
 
-    // функция показа следующего вопроса
+    // метод показа следующего вопроса
     private func show(quiz step: QuizStepViewModel) {
         ButtonsEnableToggle(true)
         indexLabel.text = step.questionNumber
@@ -93,7 +94,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         questionLabel.text = step.question
     }
     
-    // функция показа правильности ответа (рамка зелёная или красная)
+    // метод показа правильности ответа (рамка зелёная или красная)
     private func showAnswerResult(isCorrect: Bool) {
         guard let currentQuestion = currentQuestion else {return}
         previewImage.layer.borderWidth = 8
@@ -110,11 +111,12 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         }
     }
     
-    // функция, которая либо вызывает функцию следующего вопроса, либо функцию показа алерта
+    // метод, который либо вызывает функцию следующего вопроса, либо функцию показа алерта
     private func showNextQuestionOrResults() {
         if currentQuestionIndex == questionsAmount - 1 {
             let gameResult = GameResult(correct: correctAnswers, total: questionsAmount, date: Date())
-            let staticsService = StatisticService()
+            //let staticsService = StatisticService()
+            guard let staticsService = staticsService else {return}
             staticsService.store(game: gameResult)
             let text = """
                             Ваш результат: \(correctAnswers)/\(questionsAmount)
