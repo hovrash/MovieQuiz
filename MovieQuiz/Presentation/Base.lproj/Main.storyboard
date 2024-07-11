@@ -111,6 +111,9 @@
                                     <constraint firstAttribute="bottom" secondItem="9EM-2D-YgM" secondAttribute="bottom" id="lsn-ca-Xma"/>
                                 </constraints>
                             </stackView>
+                            <activityIndicatorView opaque="NO" contentMode="scaleToFill" horizontalHuggingPriority="750" verticalHuggingPriority="750" misplaced="YES" style="medium" translatesAutoresizingMaskIntoConstraints="NO" id="CJR-fN-oBf">
+                                <rect key="frame" x="20" y="456" width="390" height="20"/>
+                            </activityIndicatorView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="6Tk-OE-BBY"/>
                         <color key="backgroundColor" name="YP Black"/>
@@ -119,9 +122,12 @@
                             <constraint firstItem="6Tk-OE-BBY" firstAttribute="trailing" secondItem="cwx-Al-37F" secondAttribute="trailing" constant="20" id="AiU-u1-ISw"/>
                             <constraint firstItem="cwx-Al-37F" firstAttribute="top" secondItem="6Tk-OE-BBY" secondAttribute="top" constant="10" id="FAr-6a-hW5"/>
                             <constraint firstItem="cwx-Al-37F" firstAttribute="leading" secondItem="6Tk-OE-BBY" secondAttribute="leading" constant="20" id="LiD-i8-NBt"/>
+                            <constraint firstItem="CJR-fN-oBf" firstAttribute="centerX" secondItem="6Tk-OE-BBY" secondAttribute="centerX" id="MIn-4w-5X1"/>
+                            <constraint firstItem="CJR-fN-oBf" firstAttribute="centerY" secondItem="6Tk-OE-BBY" secondAttribute="centerY" id="Mdh-Gn-Byj"/>
                         </constraints>
                     </view>
                     <connections>
+                        <outlet property="activityIndicator" destination="CJR-fN-oBf" id="hxf-TL-R7J"/>
                         <outlet property="indexLabel" destination="yXi-5s-O21" id="Ols-rK-2ul"/>
                         <outlet property="noButton" destination="T0F-nL-ABm" id="f18-iT-QBd"/>
                         <outlet property="previewImage" destination="h8d-Ix-mhJ" id="YxX-ef-Uuo"/>

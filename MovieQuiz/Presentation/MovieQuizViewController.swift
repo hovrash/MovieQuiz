@@ -1,6 +1,8 @@
 import UIKit
 
 final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, AlertPresenterDelegate {
+
+    
     
     // MARK: - IB Outlets
     @IBOutlet private weak var indexLabel: UILabel!
@@ -8,7 +10,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     @IBOutlet private weak var questionLabel: UILabel!
     @IBOutlet private weak var noButton: UIButton!
     @IBOutlet private weak var yesButton: UIButton!
-    
+    @IBOutlet private weak var activityIndicator: UIActivityIndicatorView!
     // MARK: - Private Properties
     private var currentQuestionIndex = 0 // индекс текущего вопроса
     private var correctAnswers = 0 // количество правильных ответов
@@ -26,11 +28,13 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         self.alertPresenter = alertPresenter
         let staticsService = StatisticService()// создаем свойство для ведения статистики
         self.staticsService = staticsService
-        let questionFactory = QuestionFactory() // создаем экземпляр фабрики для её настройки
-        questionFactory.delegate = self // устанавливаем связь фабрики с делегатом
+        let questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self) // создаем экземпляр фабрики для её настройки
+        //questionFactory.delegate = self // устанавливаем связь фабрики с делегатом
         self.questionFactory = questionFactory // сохраняем подготовленный экземпляр свойство контроллера
         previewImage.layer.masksToBounds = true
         previewImage.layer.cornerRadius = 20
+        showLoadingIndicator()
+        questionFactory.loadData()
         questionFactory.requestNextQuestion()
     }
     
@@ -73,6 +77,15 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         showAnswerResult(isCorrect: true) // отправляем в метод showAnswerResult значение true
     }
     
+    func didLoadDataFromServer() {
+        activityIndicator.isHidden = true
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func didFailToLoadData(with error: any Error) {
+        showNetworkError(message: error.localizedDescription)
+    }
+    
     // MARK: - Private Methods
     // метод, который принимает булевое значение от кнопок, управляет доступностью кнопок
     private func ButtonsEnableToggle(_ action: Bool) {
@@ -82,7 +95,9 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     
     // метод, который конвертирует модель вопроса для показа на экране
     private func convert(model: QuizQuestion) -> QuizStepViewModel {
-        let result = QuizStepViewModel(image: UIImage(named: model.image) ?? UIImage(), question: model.text, questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
+        let result = QuizStepViewModel(image: UIImage(data: model.image) ?? UIImage(), 
+                                       question: model.text,
+                                       questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
         return result
     }
 
@@ -115,7 +130,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     private func showNextQuestionOrResults() {
         if currentQuestionIndex == questionsAmount - 1 {
             let gameResult = GameResult(correct: correctAnswers, total: questionsAmount, date: Date())
-            //let staticsService = StatisticService()
             guard let staticsService = staticsService else {return}
             staticsService.store(game: gameResult)
             let text = """
@@ -131,5 +145,29 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
             currentQuestionIndex += 1
             questionFactory?.requestNextQuestion()
         }
+    }
+    
+    private func showLoadingIndicator() {
+        activityIndicator.isHidden = false
+        activityIndicator.startAnimating()
+    }
+    
+    private func hideLoadingIndicator() {
+        activityIndicator.stopAnimating()
+        activityIndicator.isHidden = true
+    }
+    
+    private func showNetworkError(message: String) {
+        hideLoadingIndicator()
+        let alertTitle = "Ошибка"
+        let textButton = "Попробовать ещё раз"
+        let errorAlert = AlertModel(title: alertTitle, message: message, buttonText: textButton) {
+            [weak self] in
+                    guard let self = self else { return }
+                    self.currentQuestionIndex = 0
+                    self.correctAnswers = 0
+                    self.questionFactory?.requestNextQuestion()
+        }
+        alertPresenter?.prepareAlert(result: errorAlert)
     }
 }
