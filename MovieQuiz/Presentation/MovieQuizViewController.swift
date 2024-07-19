@@ -1,22 +1,19 @@
 import UIKit
 
 final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, AlertPresenterDelegate {
-    
-    
-    
     // MARK: - IB Outlets
     @IBOutlet private weak var indexLabel: UILabel!
-    @IBOutlet private weak var previewImage: UIImageView!
+    @IBOutlet weak var previewImage: UIImageView!
     @IBOutlet private weak var questionLabel: UILabel!
     @IBOutlet private weak var noButton: UIButton!
     @IBOutlet private weak var yesButton: UIButton!
     @IBOutlet private weak var activityIndicator: UIActivityIndicatorView!
     // MARK: - Private Properties
-    private var correctAnswers = 0 // количество правильных ответов
-    private var questionFactory: QuestionFactoryProtocol? // фабрика вопросов
-    private var staticsService: StatisticServiceProtocol?
-    private var alertPresenter: AlertPresenterProtocol?
     private let presenter = MovieQuizPresenter()
+    // MARK: - Public Properties
+    var correctAnswers = 0
+    var questionFactory: QuestionFactoryProtocol?
+    var alertPresenter: AlertPresenterProtocol?
     
     // MARK: - Overrides Methods
     override func viewDidLoad() {
@@ -24,8 +21,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         let alertPresenter = AlertPresenter()
         alertPresenter.delegate = self
         self.alertPresenter = alertPresenter
-        let staticsService = StatisticService()// создаем свойство для ведения статистики
-        self.staticsService = staticsService
         let questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self) // создаем экземпляр фабрики для её настройки
         //questionFactory.delegate = self // устанавливаем связь фабрики с делегатом
         self.questionFactory = questionFactory // сохраняем подготовленный экземпляр свойство контроллера
@@ -37,7 +32,15 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         presenter.viewController = self
     }
     
-    // MARK: - AlertPresenterDelegate
+    // MARK: - IB Actions
+    @IBAction private func noButtonTap(_ sender: Any) {
+        presenter.noButtonTap()
+    }
+    @IBAction private func yesButtonTap(_ sender: UIButton) {
+        presenter.yesButtonTap()
+    }
+    
+    //MARK: - Public Methods
     func showAlert(newAlert: AlertModel) {
         previewImage.layer.borderWidth = 0
         var alertWithAction = newAlert
@@ -59,24 +62,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         alertWithAction.completion()
     }
     
-    // MARK: - QuestionFactoryDelegate
-    func didReceiveNextQuestion(question: QuizQuestion?) {
-        guard let question = question else {return}
-        presenter.currentQuestion = question
-        let viewModel = presenter.convert(model: question)
-        DispatchQueue.main.async { [weak self] in
-            self?.show(quiz: viewModel)
-        }
-    }
-    
-    // MARK: - IB Actions
-    @IBAction private func noButtonTap(_ sender: Any) {
-        presenter.noButtonTap()
-    }
-    @IBAction private func yesButtonTap(_ sender: UIButton) {
-        presenter.yesButtonTap()
-    }
-    
     func didLoadDataFromServer() {
         activityIndicator.isHidden = true
         questionFactory?.requestNextQuestion()
@@ -86,22 +71,23 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         showNetworkError(message: error.localizedDescription)
     }
     
-    // MARK: - Private Methods
-    // метод, который принимает булевое значение от кнопок, управляет доступностью кнопок
-    private func ButtonsEnableToggle(_ action: Bool) {
-        noButton.isEnabled = action
-        yesButton.isEnabled = action
+    func didReceiveNextQuestion(question: QuizQuestion?) {
+        presenter.didReceiveNextQuestion(question: question)
     }
     
-    // метод показа следующего вопроса
-    private func show(quiz step: QuizStepViewModel) {
+    func show(quiz step: QuizStepViewModel) {
         ButtonsEnableToggle(true)
         indexLabel.text = step.questionNumber
         previewImage.image = step.image
         questionLabel.text = step.question
     }
     
-    // метод показа правильности ответа (рамка зелёная или красная)
+    // MARK: - Private Methods
+    private func ButtonsEnableToggle(_ action: Bool) {
+        noButton.isEnabled = action
+        yesButton.isEnabled = action
+    }
+    
     func showAnswerResult(isCorrect: Bool) {
         guard let currentQuestion = presenter.currentQuestion else {return}
         previewImage.layer.borderWidth = 8
@@ -114,39 +100,10 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self = self else {return}
-            self.showNextQuestionOrResults()
+            self.presenter.correctAnswers = self.correctAnswers
+            self.presenter.questionFactory = self.questionFactory
+            self.presenter.showNextQuestionOrResults()
         }
-    }
-    
-    // метод, который либо вызывает функцию следующего вопроса, либо функцию показа алерта
-    private func showNextQuestionOrResults() {
-        if presenter.isLastQuestion() {
-            let gameResult = GameResult(correct: correctAnswers, total: presenter.questionsAmount, date: Date())
-            guard let staticsService = staticsService else {return}
-            staticsService.store(game: gameResult)
-            let text = """
-                            Ваш результат: \(correctAnswers)/\(presenter.questionsAmount)
-                            Количество сыгранных квизов: \(staticsService.gamesCount)
-                            Рекорд: \(staticsService.showRecord())
-                            Средняя точность: \(String(format: "%.2f", staticsService.totalAccuracy))%
-                       """
-            let quizResult = AlertModel(title: "Этот раунд закончен!", message: text, buttonText: "Сыграть ещё раз", completion:{})
-            alertPresenter?.prepareAlert(result: quizResult)
-        } else {
-            previewImage.layer.borderWidth = 0
-            presenter.switchToNextQuestion()
-            questionFactory?.requestNextQuestion()
-        }
-    }
-    
-    private func showLoadingIndicator() {
-        activityIndicator.isHidden = false
-        activityIndicator.startAnimating()
-    }
-    
-    private func hideLoadingIndicator() {
-        activityIndicator.stopAnimating()
-        activityIndicator.isHidden = true
     }
     
     private func showNetworkError(message: String) {
@@ -161,5 +118,16 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
             self.questionFactory?.requestNextQuestion()
         }
         alertPresenter?.prepareAlert(result: errorAlert)
+    }
+    
+    private func showLoadingIndicator() {
+        
+        activityIndicator.isHidden = false
+        activityIndicator.startAnimating()
+    }
+    
+    private func hideLoadingIndicator() {
+        activityIndicator.stopAnimating()
+        activityIndicator.isHidden = true
     }
 }

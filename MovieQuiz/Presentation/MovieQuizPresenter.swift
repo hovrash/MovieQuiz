@@ -9,9 +9,12 @@ import UIKit
 
 final class MovieQuizPresenter {
     let questionsAmount: Int = 10
-    var currentQuestion: QuizQuestion?
+    let staticsService = StatisticService()
     private var currentQuestionIndex: Int = 0
     weak var viewController: MovieQuizViewController?
+    var currentQuestion: QuizQuestion?
+    var correctAnswers: Int?
+    var questionFactory: QuestionFactoryProtocol?
     
     func yesButtonTap() {
         viewController?.showAnswerResult(isCorrect: true)
@@ -38,5 +41,36 @@ final class MovieQuizPresenter {
                                        question: model.text,
                                        questionNumber: "\(currentQuestionIndex + 1)/\(questionsAmount)")
         return result
+    }
+    
+    func didReceiveNextQuestion(question: QuizQuestion?) {
+        guard let question = question else {return}
+        currentQuestion = question
+        let viewModel = convert(model: question)
+        DispatchQueue.main.async { [weak self] in
+            self?.viewController?.show(quiz: viewModel)
+        }
+    }
+    
+    func showNextQuestionOrResults() {
+        if self.isLastQuestion() {
+            guard let correctAnswers = viewController?.correctAnswers else { return }
+            guard let questionFactory = viewController?.questionFactory else { return }
+            
+            let gameResult = GameResult(correct: correctAnswers, total: self.questionsAmount, date: Date())
+            staticsService.store(game: gameResult)
+            let text = """
+                            Ваш результат: \(correctAnswers)/\(self.questionsAmount)
+                            Количество сыгранных квизов: \(staticsService.gamesCount)
+                            Рекорд: \(staticsService.showRecord())
+                            Средняя точность: \(String(format: "%.2f", staticsService.totalAccuracy))%
+                       """
+            let quizResult = AlertModel(title: "Этот раунд закончен!", message: text, buttonText: "Сыграть ещё раз", completion:{})
+            viewController?.alertPresenter?.prepareAlert(result: quizResult)
+        } else {
+            viewController?.previewImage.layer.borderWidth = 0
+            switchToNextQuestion()
+            questionFactory?.requestNextQuestion()
+        }
     }
 }
