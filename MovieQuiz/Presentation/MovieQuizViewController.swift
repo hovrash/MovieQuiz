@@ -14,7 +14,6 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     // MARK: - Private Properties
     private var correctAnswers = 0 // количество правильных ответов
     private var questionFactory: QuestionFactoryProtocol? // фабрика вопросов
-    private var currentQuestion: QuizQuestion? // текущий вопрос, который видит пользователь
     private var staticsService: StatisticServiceProtocol?
     private var alertPresenter: AlertPresenterProtocol?
     private let presenter = MovieQuizPresenter()
@@ -35,6 +34,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         showLoadingIndicator()
         questionFactory.loadData()
         questionFactory.requestNextQuestion()
+        presenter.viewController = self
     }
     
     // MARK: - AlertPresenterDelegate
@@ -62,7 +62,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     // MARK: - QuestionFactoryDelegate
     func didReceiveNextQuestion(question: QuizQuestion?) {
         guard let question = question else {return}
-        currentQuestion = question
+        presenter.currentQuestion = question
         let viewModel = presenter.convert(model: question)
         DispatchQueue.main.async { [weak self] in
             self?.show(quiz: viewModel)
@@ -71,10 +71,10 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     
     // MARK: - IB Actions
     @IBAction private func noButtonTap(_ sender: Any) {
-        showAnswerResult(isCorrect: false) // отправляем в метод showAnswerResult значение false
+        presenter.noButtonTap()
     }
-    @IBAction private func yesButtonTap(_ sender: Any) {
-        showAnswerResult(isCorrect: true) // отправляем в метод showAnswerResult значение true
+    @IBAction private func yesButtonTap(_ sender: UIButton) {
+        presenter.yesButtonTap()
     }
     
     func didLoadDataFromServer() {
@@ -102,8 +102,8 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     }
     
     // метод показа правильности ответа (рамка зелёная или красная)
-    private func showAnswerResult(isCorrect: Bool) {
-        guard let currentQuestion = currentQuestion else {return}
+    func showAnswerResult(isCorrect: Bool) {
+        guard let currentQuestion = presenter.currentQuestion else {return}
         previewImage.layer.borderWidth = 8
         ButtonsEnableToggle(false)
         if currentQuestion.correctAnswer == isCorrect {
