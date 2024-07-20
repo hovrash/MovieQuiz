@@ -8,27 +8,28 @@
 import UIKit
 
 final class MovieQuizPresenter: QuestionFactoryDelegate {
-    let questionsAmount: Int = 10
-    let staticsService = StatisticService()
+    private var questionFactory: QuestionFactoryProtocol?
+    private let statisticService: StatisticServiceProtocol!
     private var currentQuestionIndex: Int = 0
     private weak var viewController: MovieQuizViewController?
-    var currentQuestion: QuizQuestion?
-    var correctAnswers: Int = 0
-    private var questionFactory: QuestionFactoryProtocol?
+    private let questionsAmount: Int = 10
+    private var currentQuestion: QuizQuestion?
+    private var correctAnswers: Int = 0
     
-    init(viewController: MovieQuizViewController) {
-        self.viewController = viewController
+    init(viewController: MovieQuizViewControllerProtocol) {
+        statisticService = StatisticService()
+        self.viewController = viewController as? MovieQuizViewController
         questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
         questionFactory?.loadData()
         viewController.showLoadingIndicator()
     }
     
     func yesButtonTap() {
-        viewController?.showAnswerResult(isCorrect: true)
+        proceedWithAnswer(isCorrect: true)
     }
     
     func noButtonTap() {
-        viewController?.showAnswerResult(isCorrect: false)
+        proceedWithAnswer(isCorrect: false)
     }
     
     func isLastQuestion() -> Bool {
@@ -61,22 +62,19 @@ final class MovieQuizPresenter: QuestionFactoryDelegate {
         }
     }
     
-    func didAnswer(isCorrect: Bool) {
-        if isCorrect {
+    func didAnswer(isCorrect: Bool) -> Bool {
+        if isCorrect == currentQuestion?.correctAnswer {
             correctAnswers += 1
+            return true
+        } else {
+            return false
         }
     }
     
-    func showNextQuestionOrResults() {
-        if self.isLastQuestion() {            
+    func proceedToNextQuestionOrResults() {
+        if self.isLastQuestion() {
             let gameResult = GameResult(correct: correctAnswers, total: self.questionsAmount, date: Date())
-            staticsService.store(game: gameResult)
-            let text = """
-                            Ваш результат: \(correctAnswers)/\(self.questionsAmount)
-                            Количество сыгранных квизов: \(staticsService.gamesCount)
-                            Рекорд: \(staticsService.showRecord())
-                            Средняя точность: \(String(format: "%.2f", staticsService.totalAccuracy))%
-                       """
+            let text = makeResultsMessage(game: gameResult)
             let quizResult = AlertModel(title: "Этот раунд закончен!", message: text, buttonText: "Сыграть ещё раз", completion:{})
             viewController?.alertPresenter?.prepareAlert(result: quizResult)
         } else {
@@ -94,5 +92,32 @@ final class MovieQuizPresenter: QuestionFactoryDelegate {
     func didFailToLoadData(with error: any Error) {
         let message = error.localizedDescription
         viewController?.showNetworkError(message: message)
+    }
+    
+    func makeResultsMessage(game: GameResult) -> String {
+        statisticService.store(game: game)
+        
+        let bestGame = statisticService.bestGame
+        
+        let totalPlaysCountLine = "Количество сыгранных квизов: \(statisticService.gamesCount)"
+        let currentGameResultLine = "Ваш результат: \(correctAnswers)\\\(questionsAmount)"
+        let bestGameInfoLine = "Рекорд: \(bestGame.correct)\\\(bestGame.total)"
+        + " (\(bestGame.date.dateTimeString))"
+        let averageAccuracyLine = "Средняя точность: \(String(format: "%.2f", statisticService.totalAccuracy))%"
+        
+        let resultMessage = [
+            currentGameResultLine, totalPlaysCountLine, bestGameInfoLine, averageAccuracyLine
+        ].joined(separator: "\n")
+        
+        return resultMessage
+    }
+    
+    func proceedWithAnswer(isCorrect: Bool) {
+        viewController?.buttonsEnableToggle(false)
+        viewController?.highlightImageBorder(isCorrectAnswer: didAnswer(isCorrect: isCorrect))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self = self else {return}
+            self.proceedToNextQuestionOrResults()
+        }
     }
 }
