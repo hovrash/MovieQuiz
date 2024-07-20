@@ -7,14 +7,21 @@
 
 import UIKit
 
-final class MovieQuizPresenter {
+final class MovieQuizPresenter: QuestionFactoryDelegate {
     let questionsAmount: Int = 10
     let staticsService = StatisticService()
     private var currentQuestionIndex: Int = 0
-    weak var viewController: MovieQuizViewController?
+    private weak var viewController: MovieQuizViewController?
     var currentQuestion: QuizQuestion?
-    var correctAnswers: Int?
-    var questionFactory: QuestionFactoryProtocol?
+    var correctAnswers: Int = 0
+    private var questionFactory: QuestionFactoryProtocol?
+    
+    init(viewController: MovieQuizViewController) {
+        self.viewController = viewController
+        questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self)
+        questionFactory?.loadData()
+        viewController.showLoadingIndicator()
+    }
     
     func yesButtonTap() {
         viewController?.showAnswerResult(isCorrect: true)
@@ -28,8 +35,10 @@ final class MovieQuizPresenter {
         currentQuestionIndex == questionsAmount - 1
     }
     
-    func resetQuestionIndex() {
+    func restartGame() {
         currentQuestionIndex = 0
+        correctAnswers = 0
+        questionFactory?.requestNextQuestion()
     }
     
     func switchToNextQuestion() {
@@ -52,11 +61,14 @@ final class MovieQuizPresenter {
         }
     }
     
+    func didAnswer(isCorrect: Bool) {
+        if isCorrect {
+            correctAnswers += 1
+        }
+    }
+    
     func showNextQuestionOrResults() {
-        if self.isLastQuestion() {
-            guard let correctAnswers = viewController?.correctAnswers else { return }
-            guard let questionFactory = viewController?.questionFactory else { return }
-            
+        if self.isLastQuestion() {            
             let gameResult = GameResult(correct: correctAnswers, total: self.questionsAmount, date: Date())
             staticsService.store(game: gameResult)
             let text = """
@@ -72,5 +84,15 @@ final class MovieQuizPresenter {
             switchToNextQuestion()
             questionFactory?.requestNextQuestion()
         }
+    }
+    
+    func didLoadDataFromServer() {
+        viewController?.hideLoadingIndicator()
+        questionFactory?.requestNextQuestion()
+    }
+    
+    func didFailToLoadData(with error: any Error) {
+        let message = error.localizedDescription
+        viewController?.showNetworkError(message: message)
     }
 }

@@ -1,6 +1,6 @@
 import UIKit
 
-final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, AlertPresenterDelegate {
+final class MovieQuizViewController: UIViewController, AlertPresenterDelegate {
     // MARK: - IB Outlets
     @IBOutlet private weak var indexLabel: UILabel!
     @IBOutlet weak var previewImage: UIImageView!
@@ -9,10 +9,8 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
     @IBOutlet private weak var yesButton: UIButton!
     @IBOutlet private weak var activityIndicator: UIActivityIndicatorView!
     // MARK: - Private Properties
-    private let presenter = MovieQuizPresenter()
+    private var presenter: MovieQuizPresenter!
     // MARK: - Public Properties
-    var correctAnswers = 0
-    var questionFactory: QuestionFactoryProtocol?
     var alertPresenter: AlertPresenterProtocol?
     
     // MARK: - Overrides Methods
@@ -21,15 +19,16 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         let alertPresenter = AlertPresenter()
         alertPresenter.delegate = self
         self.alertPresenter = alertPresenter
-        let questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self) // создаем экземпляр фабрики для её настройки
+//        let questionFactory = QuestionFactory(moviesLoader: MoviesLoader(), delegate: self) // создаем экземпляр фабрики для её настройки
         //questionFactory.delegate = self // устанавливаем связь фабрики с делегатом
-        self.questionFactory = questionFactory // сохраняем подготовленный экземпляр свойство контроллера
+//        self.questionFactory = questionFactory // сохраняем подготовленный экземпляр свойство контроллера
         previewImage.layer.masksToBounds = true
         previewImage.layer.cornerRadius = 20
         showLoadingIndicator()
-        questionFactory.loadData()
-        questionFactory.requestNextQuestion()
-        presenter.viewController = self
+//        questionFactory.loadData()
+//        questionFactory.requestNextQuestion()
+//        presenter.viewController = self
+        presenter = MovieQuizPresenter(viewController: self)
     }
     
     // MARK: - IB Actions
@@ -52,9 +51,7 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
             alert.view.accessibilityIdentifier = "Alert"
             let action = UIAlertAction(title: newAlert.buttonText, style: .default) { [weak self] _ in
                 guard let self = self else {return}
-                presenter.resetQuestionIndex()
-                self.correctAnswers = 0
-                questionFactory?.requestNextQuestion()
+                self.presenter.restartGame()
             }
             alert.addAction(action)
             self.present(alert, animated: true, completion: nil)
@@ -62,18 +59,18 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         alertWithAction.completion()
     }
     
-    func didLoadDataFromServer() {
-        activityIndicator.isHidden = true
-        questionFactory?.requestNextQuestion()
-    }
-    
-    func didFailToLoadData(with error: any Error) {
-        showNetworkError(message: error.localizedDescription)
-    }
-    
-    func didReceiveNextQuestion(question: QuizQuestion?) {
-        presenter.didReceiveNextQuestion(question: question)
-    }
+//    func didLoadDataFromServer() {
+//        activityIndicator.isHidden = true
+//        questionFactory?.requestNextQuestion()
+//    }
+//    
+//    func didFailToLoadData(with error: any Error) {
+//        showNetworkError(message: error.localizedDescription)
+//    }
+//    
+//    func didReceiveNextQuestion(question: QuizQuestion?) {
+//        presenter.didReceiveNextQuestion(question: question)
+//    }
     
     func show(quiz step: QuizStepViewModel) {
         ButtonsEnableToggle(true)
@@ -94,39 +91,35 @@ final class MovieQuizViewController: UIViewController, QuestionFactoryDelegate, 
         ButtonsEnableToggle(false)
         if currentQuestion.correctAnswer == isCorrect {
             previewImage.layer.borderColor = UIColor.ypGreen.cgColor
-            correctAnswers += 1
+            presenter.didAnswer(isCorrect: isCorrect)
         } else {
             previewImage.layer.borderColor = UIColor.ypRed.cgColor
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             guard let self = self else {return}
-            self.presenter.correctAnswers = self.correctAnswers
-            self.presenter.questionFactory = self.questionFactory
             self.presenter.showNextQuestionOrResults()
         }
     }
     
-    private func showNetworkError(message: String) {
+    func showNetworkError(message: String) {
         hideLoadingIndicator()
         let alertTitle = "Ошибка"
         let textButton = "Попробовать ещё раз"
         let errorAlert = AlertModel(title: alertTitle, message: message, buttonText: textButton) {
             [weak self] in
             guard let self = self else { return }
-            presenter.resetQuestionIndex()
-            self.correctAnswers = 0
-            self.questionFactory?.requestNextQuestion()
+            presenter.restartGame()
         }
         alertPresenter?.prepareAlert(result: errorAlert)
     }
     
-    private func showLoadingIndicator() {
+    func showLoadingIndicator() {
         
         activityIndicator.isHidden = false
         activityIndicator.startAnimating()
     }
     
-    private func hideLoadingIndicator() {
+    func hideLoadingIndicator() {
         activityIndicator.stopAnimating()
         activityIndicator.isHidden = true
     }
