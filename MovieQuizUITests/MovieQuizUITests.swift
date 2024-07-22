@@ -75,4 +75,19 @@ final class MovieQuizUITests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
     }
+    
+    func testAlertClosed() {
+        sleep(2)
+        let alert = app.alerts["Alert"]
+        let indexLabel = app.staticTexts["Index"]
+        for _ in 1...10 {
+            app.buttons["Yes"].tap()
+            sleep(2)
+        }
+        XCTAssertTrue(alert.exists)
+        alert.buttons.firstMatch.tap()
+        sleep(2)
+        XCTAssertFalse(alert.exists)
+        XCTAssertEqual(indexLabel.label, "1/10")
+    }
 }
